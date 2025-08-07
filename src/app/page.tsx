@@ -15,42 +15,42 @@ interface Advocate {
 
 export default function Home() {
   const [advocates, setAdvocates] = useState<Advocate[]>([]);
-  const [filteredAdvocates, setFilteredAdvocates] = useState<Advocate[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedTerm, setDebouncedTerm] = useState(searchTerm);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     console.log("fetching advocates...");
-    fetch("/api/advocates").then((response) => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+      search: searchTerm.trim(),
+    });
+    fetch(`/api/advocates?${params.toString()}`).then((response) => {
       response.json().then((jsonResponse) => {
         setAdvocates(jsonResponse.data);
-        setFilteredAdvocates(jsonResponse.data);
+        setTotalPages(jsonResponse.pagination.totalPages)
       });
     });
-  }, []);
+  }, [page, limit, debouncedTerm]);
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const searchTerm = e.target.value;
-
     setSearchTerm(searchTerm);
-
-    console.log("filtering advocates...");
-    const filteredAdvocates = advocates.filter((advocate) => {
-      return (
-        advocate.firstName.includes(searchTerm) ||
-        advocate.lastName.includes(searchTerm) ||
-        advocate.city.includes(searchTerm) ||
-        advocate.degree.includes(searchTerm) ||
-        advocate.specialties.includes(searchTerm) ||
-        advocate.yearsOfExperience.toString().includes(searchTerm)
-      );
-    });
-
-    setFilteredAdvocates(filteredAdvocates);
   };
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedTerm(searchTerm);
+    }, 500);
+
+    return () => clearTimeout(timeout);
+  }, [searchTerm]);
 
   const resetSearch = () => {
     console.log(advocates);
-    setFilteredAdvocates(advocates);
     setSearchTerm('')
   };
 
@@ -101,7 +101,7 @@ export default function Home() {
           </tr>
         </thead>
         <tbody>
-          {filteredAdvocates.map((advocate) => {
+          {advocates.map((advocate) => {
             return (
               <tr key={advocate.id}>
                 <td className="p-4 border-b">{advocate.firstName}</td>
@@ -120,6 +120,27 @@ export default function Home() {
           })}
         </tbody>
       </table>
+      </div>
+      <div className="flex items-center justify-center space-x-4 mt-4">
+        <button
+          onClick={() => setPage((page) => Math.max(1, page - 1))}
+          disabled={page === 1}
+          className="px-4 py-2 border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+        >
+          Previous
+        </button>
+
+        <span className="text-sm font-medium">
+          Page {page} of {totalPages}
+        </span>
+
+        <button
+          onClick={() => setPage((page) => Math.min(totalPages, page + 1))}
+          disabled={page === totalPages}
+          className="px-4 py-2 border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+        >
+          Next
+        </button>
       </div>
     </main>
   );
